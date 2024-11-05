@@ -8,17 +8,26 @@ public class PlayerController : MonoBehaviour
     public float SprintSpeed = 4.0f;
     public float JumpForce = 5.0f;
     public float RotationSmoothing = 20f;
+    public GameObject[] WeaponInventory;
+    public GameObject[] WeaponMeshes;
+    private int SelectedWeaponId = 0;
+    public Weapon _Weapon;
     public GameObject HandMeshes;
     private float pitch, yaw;
     private Rigidbody rb;
     private GameManager _GameManager;
     private bool IsGround;
     public float DistationToGround = 0.1f;
+    private AnimationManager _AnimationManager;
+    private bool IsSprinting = false;
 
     private void Start()
     {
         rb = GetComponent<Rigidbody>();
         _GameManager = FindObjectOfType<GameManager>();
+        _Weapon = WeaponInventory[SelectedWeaponId].GetComponent<Weapon>();
+        WeaponMeshes[SelectedWeaponId].SetActive(true);
+        _AnimationManager = WeaponMeshes[SelectedWeaponId].GetComponent<AnimationManager>();
     }
     private void Jump()
     {
@@ -41,6 +50,7 @@ public class PlayerController : MonoBehaviour
 
     private Vector3 CalulateSpeed()
     {
+        IsSprinting = true;
         float HorizontalDirection = Input.GetAxis("Horizontal");
         float VerticalDirection = Input.GetAxis("Vertical");
         Vector3 Move = transform.right * HorizontalDirection + transform.forward * VerticalDirection;
@@ -56,7 +66,29 @@ public class PlayerController : MonoBehaviour
             Jump();
         }
 
-        if(Input.GetKey(KeyCode.LeftShift) && !_GameManager.IsStaminaRestroing)
+        if(Input.GetKey(KeyCode.Mouse0))
+        {
+            _Weapon.Fire();
+            _AnimationManager.SetAnimationFire();
+        }
+
+        if (Input.GetKey(KeyCode.R))
+        {
+            _Weapon.Reload();
+            _AnimationManager.SetAnimationReload();
+        }
+
+        if (Input.GetAxis("Mouse ScrollWheel") > 0) 
+        {
+            SelectNextWeapon();
+        }
+
+        if (Input.GetAxis("Mouse ScrollWheel") < 0)
+        {
+            SelectPrevWeapon();
+        }
+
+        if (Input.GetKey(KeyCode.LeftShift) && !_GameManager.IsStaminaRestroing)
         {
             _GameManager.SpendStamina();
             rb.MovePosition(CalulateSpeed());
@@ -64,6 +96,8 @@ public class PlayerController : MonoBehaviour
         else rb.MovePosition(CalulateMovement());
 
         SetRotation();
+
+        SetAnimation(); 
     }
     private void OnDrawGizmosSelected()
     {
@@ -97,5 +131,70 @@ public class PlayerController : MonoBehaviour
             * Time.fixedDeltaTime);
     }
 
+    private void SelectPrevWeapon()
+    {
+        if(SelectedWeaponId != 0)
+        {
+            WeaponMeshes[SelectedWeaponId].SetActive(false);
+            SelectedWeaponId -= 1;
+            _Weapon = WeaponInventory[SelectedWeaponId].GetComponent<Weapon>();
+            WeaponMeshes[SelectedWeaponId].SetActive(true);
+            Debug.Log("Оружие: " + _Weapon.WeaponType);
+        }
+    }
+
+    private void SelectNextWeapon()
+    {
+        if(WeaponInventory.Length > SelectedWeaponId + 1)
+        {
+            WeaponMeshes[SelectedWeaponId].SetActive(false);
+            SelectedWeaponId += 1;
+            _Weapon = WeaponInventory[SelectedWeaponId].GetComponent<Weapon>();
+            WeaponMeshes[SelectedWeaponId].SetActive(true);
+            Debug.Log("Оружие: " + _Weapon.WeaponType);
+        }
+    }
+
+    public void AddWeaponToInventory(GameObject pickedWeapon, GameObject mash)
+    {
+
+        pickedWeapon.SetActive(true);
+
+        List<GameObject> weaponList = new List<GameObject>(WeaponInventory);
+        weaponList.Add(pickedWeapon);
+        WeaponInventory = weaponList.ToArray();
+
+        List<GameObject> weaponMeshesList = new List<GameObject>(WeaponMeshes);
+        weaponMeshesList.Add(mash);
+        WeaponMeshes = weaponMeshesList.ToArray();
+
+        Debug.Log("Оружие добавлено в инвентарь: " + pickedWeapon.name);
+
+
+    }
+
+    private bool IsMoving()
+    {
+        return Input.GetAxis("Horizontal") != 0 || Input.GetAxis("Vertical") != 0;
+    }
+
+    private void SetAnimation()
+    {
+        if(IsMoving())
+        {
+            if(IsSprinting)
+            {
+                _AnimationManager.SetAnimationRun();
+            }
+            else
+            {
+                _AnimationManager.SetAnimationWalk();
+            }
+        }
+        else
+        {
+            _AnimationManager.SetAnimationIdle();
+        }
+    }
 
 }
